@@ -6,6 +6,7 @@ workflows:
     environment:
       vars:
         BUNDLE_ID: "com.threadloop.app"
+        TEAM_ID: "${TEAM_ID}"        # set in Codemagic → Environment variables
         SCHEME: "App"
         IOS_WORKSPACE: "ios/App/App.xcworkspace"
       xcode: latest
@@ -43,6 +44,7 @@ workflows:
             -allowProvisioningUpdates \
             -archivePath build/App.xcarchive \
             CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM="$TEAM_ID" \
             PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
             clean archive | tee xcode-archive.log
           echo "› Exporting IPA…"
