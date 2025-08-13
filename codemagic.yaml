@@ -4,9 +4,11 @@ workflows:
     max_build_duration: 60
 
     environment:
+      groups:
+        - signing            # ← pulls TEAM_ID from the “signing” group you just created
       vars:
         BUNDLE_ID: "com.threadloop.app"
-        TEAM_ID: "${TEAM_ID}"        # set in Codemagic → Environment variables
+        TEAM_ID: "${TEAM_ID}"        # resolved from the group above
         SCHEME: "App"
         IOS_WORKSPACE: "ios/App/App.xcworkspace"
       xcode: latest
