@@ -5,10 +5,11 @@ workflows:
 
     environment:
       groups:
-        - signing          # installs your Dev cert + "Threadloop Dev Prov" profile
+        - signing                       # your Dev cert + "Threadloop Dev Prov" profile
       vars:
         BUNDLE_ID: "com.threadloop.app"
         TEAM_ID: "ANYNJ42USZ"
+        PROFILE_NAME: "Threadloop Dev Prov"   # <-- must match Codemagic profile name exactly
         SCHEME: "App"
         IOS_WORKSPACE: "ios/App/App.xcworkspace"
       xcode: latest
@@ -27,7 +28,6 @@ workflows:
       - name: Add iOS platform (if missing) & sync Capacitor
         script: |
           set -euo pipefail
-          # Show platforms so we can decide whether to add iOS
           npx cap ls || true
           if ! npx cap ls | grep -qi "ios.*installed"; then
             echo "➕ Adding iOS platform"
@@ -46,9 +46,9 @@ workflows:
       - name: Xcode archive & export (raw logs)
         script: |
           set -euo pipefail
-
           echo "🔐 Using manual signing with uploaded certificate & profile"
-          # Archive
+
+          # ---- Archive (tell Xcode the exact provisioning profile to use) ----
           xcodebuild \
             -workspace "$IOS_WORKSPACE" \
             -scheme "$SCHEME" \
@@ -58,10 +58,12 @@ workflows:
             CODE_SIGN_STYLE=Manual \
             DEVELOPMENT_TEAM="$TEAM_ID" \
             PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+            PROVISIONING_PROFILE_SPECIFIER="$PROFILE_NAME" \
+            CODE_SIGN_IDENTITY="Apple Development" \
             archive
 
-          echo "📝 Creating export options (development)"
-          cat > /tmp/exportOptions.plist << 'EOF'
+          # ---- Export IPA ----
+          cat > /tmp/exportOptions.plist << EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -70,7 +72,7 @@ workflows:
               <key>signingStyle</key><string>manual</string>
               <key>provisioningProfiles</key>
               <dict>
-                <key>com.threadloop.app</key><string>Threadloop Dev Prov</string>
+                <key>${BUNDLE_ID}</key><string>${PROFILE_NAME}</string>
               </dict>
               <key>compileBitcode</key><false/>
               <key>destination</key><string>export</string>
@@ -78,7 +80,6 @@ workflows:
           </plist>
           EOF
 
-          echo "📦 Exporting IPA to Codemagic artifacts"
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
             -exportOptionsPlist /tmp/exportOptions.plist \
