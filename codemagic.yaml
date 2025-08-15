@@ -50,13 +50,34 @@ workflows:
       - name: Build IPA
         script: |
           set -e
+          # Build + export IPA
           xcode-project build-ipa --workspace "$WORKSPACE" --scheme "$SCHEME"
-          FOUND_IPA="$(find "$CM_BUILD_DIR" -name '*.ipa' -print -quit || true)"
-          [ -z "$FOUND_IPA" ] && FOUND_IPA="$(find . ios/App -name '*.ipa' -print -quit || true)"
-          [ -n "$FOUND_IPA" ] && cp "$FOUND_IPA" "$CM_ARTIFACTS/" || (echo "No IPA found" && exit 2)
-          ls -lah "$CM_ARTIFACTS" || true
+
+          # The exporter should place the IPA here:
+          IPA_PATH="build/ios/ipa/App.ipa"
+          if [ ! -f "$IPA_PATH" ]; then
+            echo "❌ Expected IPA not found at $IPA_PATH. Searching..."
+            find . -name "*.ipa" -maxdepth 4 -print
+            exit 2
+          fi
+
+          echo "✅ Found IPA at $IPA_PATH"
+          # Try to copy to Codemagic's artifacts dir if it's valid
+          if [ -n "$CM_ARTIFACTS" ] && [ "$CM_ARTIFACTS" != "/" ]; then
+            mkdir -p "$CM_ARTIFACTS"
+            cp -v "$IPA_PATH" "$CM_ARTIFACTS/"
+          fi
+
+          # Always leave a local fallback for artifact collection
+          mkdir -p build/artifacts
+          cp -v "$IPA_PATH" build/artifacts/
+          echo "Artifacts listing:"
+          ls -lah "$CM_ARTIFACTS" 2>/dev/null || true
+          ls -lah build/artifacts || true
 
     artifacts:
+      - build/ios/ipa/App.ipa
+      - build/artifacts/*.ipa
       - $CM_ARTIFACTS/*.ipa
       - /Users/builder/export_options.plist
 
