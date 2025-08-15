@@ -47,7 +47,7 @@ workflows:
       - name: Apply profiles
         script: xcode-project use-profiles
 
-            - name: Build IPA
+      - name: Build IPA
         script: |
           set -e
           xcode-project build-ipa --workspace "$WORKSPACE" --scheme "$SCHEME"
