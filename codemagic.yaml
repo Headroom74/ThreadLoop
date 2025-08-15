@@ -17,7 +17,6 @@ workflows:
         SCHEME: "App"
         WORKSPACE: "ios/App/App.xcworkspace"
         PROJECT_PATH: "ios/App"
-      # Let Codemagic provide the correct cert + profile automatically
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.threadloop.app
@@ -38,7 +37,6 @@ workflows:
         working_directory: ios/App
         script: pod install --repo-update
 
-      # Ensure the project uses your bundle id + team
       - name: Ensure bundle id & team in Xcode project
         working_directory: ios/App
         script: |
@@ -46,11 +44,9 @@ workflows:
           sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = [^;]*;/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/g" App.xcodeproj/project.pbxproj
           sed -i '' "s/DEVELOPMENT_TEAM = [A-Z0-9]*/DEVELOPMENT_TEAM = $TEAM_ID/g" App.xcodeproj/project.pbxproj
 
-      # Apply the fetched provisioning profiles
       - name: Apply profiles
         script: xcode-project use-profiles
 
-      # Build the IPA (archive + export)
       - name: Build IPA
         script: |
           set -e
@@ -68,5 +64,3 @@ workflows:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        # beta_groups:
-        #   - Internal Testers
