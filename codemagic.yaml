@@ -37,45 +37,38 @@ workflows:
         script: |
           pod install --repo-update
 
-      # Key fix #1: correct Codemagic CLI usage (options first, bundle id last)
-      # This generates provisioning + export_options.plist for App Store builds.
       - name: Set up signing (automatic via ASC)
         script: |
           keychain initialize
+          # Options first, then the bundle id as positional arg:
           app-store-connect fetch-signing-files --type IOS_APP_STORE --create "$BUNDLE_ID"
           keychain add-certificates
+          # Apply profiles and generate export_options.plist for app-store distribution
           xcode-project use-profiles
 
-      - name: Archive
+      # One-shot archive + export to produce an .ipa
+      - name: Build IPA
         script: |
-          xcodebuild -workspace "$WORKSPACE" \
-            -scheme "$SCHEME" \
-            -configuration Release \
-            -archivePath "$CM_BUILD_DIR/build/App.xcarchive" \
-            -destination "generic/platform=iOS" \
-            clean archive | xcpretty
-
-      # Key fix #2: export directly to $CM_ARTIFACTS and verify the .ipa exists
-      - name: Export .ipa
-        script: |
-          xcodebuild -exportArchive \
-            -archivePath "$CM_BUILD_DIR/build/App.xcarchive" \
-            -exportOptionsPlist /Users/builder/export_options.plist \
-            -exportPath "$CM_ARTIFACTS" | xcpretty
-          echo "Artifacts after export:"
-          ls -lah "$CM_ARTIFACTS" || true
-          # Fallback: if ipa somehow exported elsewhere, find and copy it
-          FOUND_IPA=$(find "$CM_BUILD_DIR" -name "*.ipa" -print -quit)
-          if [ -n "$FOUND_IPA" ] && [ ! -f "$CM_ARTIFACTS/$(basename "$FOUND_IPA")" ]; then
-            echo "Copying fallback IPA from $FOUND_IPA"
-            cp "$FOUND_IPA" "$CM_ARTIFACTS/"
+          # Build and export .ipa using workspace + scheme
+          xcode-project build-ipa --workspace "$WORKSPACE" --scheme "$SCHEME"
+          echo "Searching for generated IPA..."
+          FOUND_IPA="$(find "$CM_BUILD_DIR" -name '*.ipa' -print -quit || true)"
+          if [ -z "$FOUND_IPA" ]; then
+            # Also check current dir and ios/App
+            FOUND_IPA="$(find . ios/App -name '*.ipa' -print -quit || true)"
           fi
-          echo "Final artifacts:"
+          if [ -n "$FOUND_IPA" ]; then
+            echo "Found IPA at: $FOUND_IPA"
+            cp "$FOUND_IPA" "$CM_ARTIFACTS/"
+          else
+            echo "No IPA found after build-ipa"
+            exit 2
+          fi
+          echo "Artifacts now contain:"
           ls -lah "$CM_ARTIFACTS" || true
 
     artifacts:
       - $CM_ARTIFACTS/*.ipa
-      - $CM_BUILD_DIR/build/App.xcarchive/**/*    # helpful for debugging if needed
       - /Users/builder/export_options.plist
 
     publishing:
