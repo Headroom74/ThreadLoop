@@ -17,15 +17,17 @@ workflows:
         SCHEME: "App"
         WORKSPACE: "ios/App/App.xcworkspace"
         PROJECT_PATH: "ios/App"
+      # Let Codemagic provide the correct cert + profile automatically
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.threadloop.app
 
     scripts:
       - name: Install Node deps
-        script: |
-          npm ci || npm i
+        script: npm ci || npm i
 
       - name: Build web assets
-        script: |
-          npm run build
+        script: npm run build
 
       - name: Add/sync iOS (Capacitor)
         script: |
@@ -34,10 +36,9 @@ workflows:
 
       - name: Install CocoaPods
         working_directory: ios/App
-        script: |
-          pod install --repo-update
+        script: pod install --repo-update
 
-      # Ensure the Xcode project matches your bundle id & team
+      # Ensure the project uses your bundle id + team
       - name: Ensure bundle id & team in Xcode project
         working_directory: ios/App
         script: |
@@ -45,16 +46,11 @@ workflows:
           sed -i '' "s/PRODUCT_BUNDLE_IDENTIFIER = [^;]*;/PRODUCT_BUNDLE_IDENTIFIER = $BUNDLE_ID;/g" App.xcodeproj/project.pbxproj
           sed -i '' "s/DEVELOPMENT_TEAM = [A-Z0-9]*/DEVELOPMENT_TEAM = $TEAM_ID/g" App.xcodeproj/project.pbxproj
 
-      # IMPORTANT: Use stored cert, fetch ONLY profiles (no --create, no cert download)
-      - name: Set up signing (use stored cert + fetch profiles)
-        script: |
-          set -e
-          keychain initialize
-          keychain add-certificates
-          app-store-connect fetch-signing-files --type IOS_APP_STORE "$BUNDLE_ID"
-          xcode-project use-profiles
+      # Apply the fetched provisioning profiles
+      - name: Apply profiles
+        script: xcode-project use-profiles
 
-      # Build IPA in one step and place it into artifacts
+      # Build the IPA (archive + export)
       - name: Build IPA
         script: |
           set -e
