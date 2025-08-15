@@ -40,12 +40,9 @@ workflows:
       - name: Set up signing (automatic via ASC)
         script: |
           keychain initialize
-          app-store-connect fetch-signing-files \
-            --type IOS_APP_STORE \
-            --bundle-id "$BUNDLE_ID" \
-            --create
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --create
           keychain add-certificates
-          xcode-project use-profiles --bundle-id "$BUNDLE_ID"
+          xcode-project use-profiles
 
       - name: Archive
         script: |
